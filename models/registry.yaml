@@ -1,0 +1,63 @@
+# models/registry.yaml — Model registry reference.
+#
+# This file documents available embedding models and their properties.
+# It is currently used as a human-readable reference; programmatic loading
+# is seeded directly in the SQL migrations (internal/store/db.go).
+#
+# TODO: Load this file at startup to allow adding new models without
+#       recompiling (tracked in: https://github.com/hsiaosiyuan0/axon/issues)
+#
+models:
+  # ── API Models ────────────────────────────────────────────────────────
+  - name: api:text-embedding-3-small
+    provider: openai
+    dim: 1536
+    lang: multilingual
+    type: api
+    description: "OpenAI text-embedding-3-small, great balance of speed and quality"
+
+  - name: api:text-embedding-3-large
+    provider: openai
+    dim: 3072
+    lang: multilingual
+    type: api
+    description: "OpenAI text-embedding-3-large, highest quality"
+
+  # ── Local ONNX Models ─────────────────────────────────────────────────
+  - name: bge-small-zh-v1.5
+    provider: local-onnx
+    dim: 512
+    lang: zh
+    type: onnx
+    size_mb: 24
+    speed: fast
+    url: "https://hf-mirror.com/BAAI/bge-small-zh-v1.5/resolve/main/onnx/model.onnx"
+    description: "BAAI bge-small-zh, lightweight Chinese embedding"
+
+  - name: bge-m3
+    provider: local-onnx
+    dim: 1024
+    lang: multilingual
+    type: onnx
+    size_mb: 570
+    speed: slow
+    url: "https://hf-mirror.com/BAAI/bge-m3/resolve/main/onnx/model.onnx"
+    description: "BAAI bge-m3, multilingual, state-of-the-art"
+
+  - name: bge-large-zh-v1.5
+    provider: local-onnx
+    dim: 1024
+    lang: zh
+    type: onnx
+    size_mb: 326
+    speed: medium
+    url: "https://hf-mirror.com/BAAI/bge-large-zh-v1.5/resolve/main/onnx/model.onnx"
+    description: "BAAI bge-large-zh, high quality Chinese embedding"
+
+  # ── PureGo Fallback ───────────────────────────────────────────────────
+  - name: purego:tfidf-512
+    provider: local-go
+    dim: 512
+    lang: multilingual
+    type: purego
+    description: "Built-in pure-Go TF-IDF embedder, zero dependencies, works everywhere"

@@ -1,0 +1,19 @@
+# Build outputs
+axon
+axon-onnx
+dist/
+
+# Native library artifacts (downloaded/compiled by build script)
+internal/libs/libtokenizers*.a
+internal/embed/assets/onnxruntime-*.tgz
+
+# Built-in model files (downloaded by build script, embedded in binary)
+# These are generated artifacts — do NOT commit to git
+internal/embed/model/model.onnx
+internal/embed/model/tokenizer.json
+
+# User models (downloaded at runtime)
+~/.axon/models/
+
+# OS
+.DS_Store

@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Axon — Knowledge Base</title>
+<style>
+  /* ── Reset & base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #0f1117;
+    --surface:  #1a1d2e;
+    --border:   #2a2d3e;
+    --accent:   #6c63ff;
+    --accent2:  #00d4aa;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --danger:   #f87171;
+    --success:  #4ade80;
+    --warning:  #fb923c;
+    --radius:   8px;
+    --font:     'Inter', system-ui, sans-serif;
+  }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; overflow: hidden; }
+
+  /* ── Layout ── */
+  #app { display: flex; height: 100vh; }
+  #sidebar {
+    width: 300px; min-width: 220px; max-width: 400px;
+    background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+    resize: horizontal;
+  }
+  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── Sidebar header ── */
+  .sidebar-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .logo { font-size: 20px; }
+  .logo-text { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; }
+  .logo-sub { font-size: 11px; color: var(--muted); }
+
+  /* ── Search ── */
+  .search-box {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .search-input {
+    width: 100%; padding: 8px 12px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text); font-size: 13px;
+    outline: none; transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--muted); }
+
+  /* ── Collections panel ── */
+  .panel-title {
+    padding: 10px 16px 6px;
+    font-size: 11px; font-weight: 600; letter-spacing: 1px;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .collection-list { overflow-y: auto; flex-shrink: 0; max-height: 160px; }
+  .collection-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 16px; cursor: pointer; transition: background 0.15s;
+    font-size: 13px;
+  }
+  .collection-item:hover { background: rgba(108,99,255,0.1); }
+  .collection-item.active { background: rgba(108,99,255,0.18); color: var(--accent); }
+  .collection-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .collection-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .collection-count { font-size: 11px; color: var(--muted); }
+
+  /* ── Results list ── */
+  .results-area { flex: 1; overflow-y: auto; }
+  .result-item {
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    cursor: pointer; transition: background 0.15s;
+  }
+  .result-item:hover { background: rgba(255,255,255,0.03); }
+  .result-item.active { background: rgba(108,99,255,0.12); border-left: 3px solid var(--accent); }
+  .result-score {
+    display: inline-block; padding: 1px 6px; border-radius: 4px;
+    font-size: 10px; font-weight: 600; margin-bottom: 4px;
+    background: rgba(108,99,255,0.2); color: var(--accent);
+  }
+  .result-title { font-size: 13px; font-weight: 500; margin-bottom: 3px; line-height: 1.4; }
+  .result-snippet { font-size: 12px; color: var(--muted); line-height: 1.5; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .result-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .tag { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 10px; background: rgba(0,212,170,0.15); color: var(--accent2); margin-right: 4px; }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex; border-bottom: 1px solid var(--border);
+    background: var(--surface); padding: 0 16px;
+  }
+  .tab {
+    padding: 12px 16px; cursor: pointer; font-size: 13px;
+    color: var(--muted); border-bottom: 2px solid transparent;
+    transition: all 0.2s; user-select: none;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── Graph canvas ── */
+  #graph-container {
+    flex: 1; position: relative; overflow: hidden;
+    background: radial-gradient(ellipse at 50% 50%, #1a1d2e 0%, #0f1117 100%);
+  }
+  #graph-svg { width: 100%; height: 100%; }
+  .graph-controls {
+    position: absolute; bottom: 16px; right: 16px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .graph-btn {
+    width: 32px; height: 32px; border-radius: 6px;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); cursor: pointer; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .graph-btn:hover { background: var(--border); border-color: var(--accent); }
+  .graph-info {
+    position: absolute; top: 12px; left: 12px;
+    background: rgba(26,29,46,0.85); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 8px 12px;
+    font-size: 12px; color: var(--muted);
+    backdrop-filter: blur(4px);
+  }
+  .graph-info span { color: var(--text); font-weight: 500; }
+  /* legend */
+  .graph-legend {
+    position: absolute; bottom: 16px; left: 16px;
+    background: rgba(26,29,46,0.85); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 8px 12px; font-size: 11px;
+    backdrop-filter: blur(4px);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .tooltip {
+    position: absolute; pointer-events: none;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 8px 12px;
+    font-size: 12px; max-width: 220px; word-break: break-word;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .tooltip.visible { opacity: 1; }
+
+  /* ── Detail panel ── */
+  #detail-panel {
+    display: none; flex-direction: column;
+    width: 360px; background: var(--surface);
+    border-left: 1px solid var(--border); overflow: hidden;
+  }
+  #detail-panel.open { display: flex; }
+  .detail-header {
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; gap: 8px;
+  }
+  .detail-header-text { flex: 1; min-width: 0; }
+  .detail-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; word-break: break-word; }
+  .detail-origin { font-size: 11px; color: var(--muted); word-break: break-all; }
+  .detail-close { cursor: pointer; color: var(--muted); font-size: 18px; flex-shrink: 0; line-height: 1; }
+  .detail-close:hover { color: var(--text); }
+  .detail-body { flex: 1; overflow-y: auto; padding: 14px 16px; }
+  .detail-section { margin-bottom: 16px; }
+  .detail-section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 8px; }
+  .detail-content { font-size: 13px; line-height: 1.6; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+  .relation-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; border-radius: 6px; background: rgba(255,255,255,0.03);
+    margin-bottom: 5px; font-size: 12px;
+  }
+  .rel-type { font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
+  .rel-ref    { background: rgba(108,99,255,0.2); color: var(--accent); }
+  .rel-similar { background: rgba(0,212,170,0.15); color: var(--accent2); }
+  .rel-cite   { background: rgba(251,146,60,0.15); color: var(--warning); }
+  .rel-other  { background: rgba(100,116,139,0.2); color: var(--muted); }
+
+  /* ── Search results tab ── */
+  #search-results { flex: 1; overflow-y: auto; padding: 0; }
+  .no-results { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 13px; }
+
+  /* ── Status bar ── */
+  #statusbar {
+    padding: 4px 16px; font-size: 11px; color: var(--muted);
+    border-top: 1px solid var(--border); background: var(--surface);
+    display: flex; gap: 16px; align-items: center;
+  }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+  .status-dot.offline { background: var(--danger); }
+
+  /* ── SSE badge ── */
+  .sse-badge {
+    margin-left: auto; display: flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--muted);
+  }
+  .pulse-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--success);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
+  }
+
+  /* ── Spinner ── */
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <span class="logo">🦠</span>
+      <div>
+        <div class="logo-text">Axon</div>
+        <div class="logo-sub">Knowledge Base</div>
+      </div>
+    </div>
+    <div class="search-box">
+      <input class="search-input" id="search-input" type="text" placeholder="Search knowledge… (↵)" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="panel-title">Collections</div>
+    <div class="collection-list" id="collection-list">
+      <div class="collection-item" data-id="" data-color="#6c63ff">
+        <div class="collection-dot" style="background:#6c63ff"></div>
+        <div class="collection-name">All</div>
+        <div class="collection-count" id="total-count">…</div>
+      </div>
+    </div>
+    <div class="panel-title" style="margin-top:4px">Results</div>
+    <div class="results-area" id="results-area">
+      <div class="no-results" id="results-placeholder">Select a collection or search to explore</div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+    <div class="tabs">
+      <div class="tab active" data-tab="graph">⬡ Graph</div>
+      <div class="tab" data-tab="search">⌕ Search</div>
+    </div>
+
+    <!-- Graph tab -->
+    <div id="tab-graph" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div id="graph-container">
+        <svg id="graph-svg"></svg>
+        <div class="graph-info" id="graph-info">Loading…</div>
+        <div class="graph-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#6c63ff"></div> Source</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#f87171"></div> Pending</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#94a3b8"></div> Chunk</div>
+        </div>
+        <div class="graph-controls">
+          <button class="graph-btn" id="btn-zoom-in" title="Zoom in">+</button>
+          <button class="graph-btn" id="btn-zoom-out" title="Zoom out">−</button>
+          <button class="graph-btn" id="btn-fit" title="Fit view">⊙</button>
+          <button class="graph-btn" id="btn-reload" title="Reload graph">↺</button>
+        </div>
+        <div class="tooltip" id="tooltip"></div>
+      </div>
+    </div>
+
+    <!-- Search tab -->
+    <div id="tab-search" style="flex:1;display:none;flex-direction:column;overflow:hidden;">
+      <div id="search-results">
+        <div class="no-results">Type a query in the search box and press Enter</div>
+      </div>
+    </div>
+
+    <div id="statusbar">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">Connecting…</span>
+      <div class="sse-badge" id="sse-badge" style="display:none">
+        <div class="pulse-dot"></div>
+        <span>Live</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail panel -->
+  <div id="detail-panel">
+    <div class="detail-header">
+      <div class="detail-header-text">
+        <div class="detail-title" id="detail-title">—</div>
+        <div class="detail-origin" id="detail-origin">—</div>
+      </div>
+      <div class="detail-close" id="detail-close">×</div>
+    </div>
+    <div class="detail-body" id="detail-body"></div>
+  </div>
+</div>
+
+<!-- D3 v7 CDN (no-external fallback via inline simple simulation) -->
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const API = '';  // same-origin
+const COLORS = ['#6c63ff','#00d4aa','#f59e0b','#f87171','#a78bfa','#34d399','#60a5fa','#fb923c'];
+const NODE_RADIUS = { source: 10, chunk: 5, pending: 7 };
+const COLLECTION_COLORS = {};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let graphData = { nodes: [], edges: [] };
+let simulation = null;
+let activeCollection = '';
+let svgEl, gEl, zoom;
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  initGraph();
+  loadCollections();
+  bindUI();
+  connectSSE();
+  checkHealth();
+});
+
+// ── Health check ──────────────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/health`);
+    const dot = document.getElementById('status-dot');
+    const txt = document.getElementById('status-text');
+    if (r.ok) {
+      dot.classList.remove('offline');
+      const d = await r.json();
+      txt.textContent = 'Connected · ' + (d.db || '');
+    } else {
+      dot.classList.add('offline');
+      txt.textContent = 'API error ' + r.status;
+    }
+  } catch (e) {
+    document.getElementById('status-dot').classList.add('offline');
+    document.getElementById('status-text').textContent = 'Offline';
+  }
+}
+
+// ── Collections ───────────────────────────────────────────────────────────────
+async function loadCollections() {
+  try {
+    const r = await fetch(`${API}/v1/collections`);
+    const d = await r.json();
+    const cols = d.collections || [];
+    cols.forEach((c, i) => {
+      COLLECTION_COLORS[c.id] = COLORS[i % COLORS.length];
+    });
+    renderCollections(cols);
+    loadGraph('');
+  } catch (e) {
+    console.error('collections:', e);
+  }
+}
+
+function renderCollections(cols) {
+  const list = document.getElementById('collection-list');
+  // Count total from status
+  fetch(`${API}/v1/status`).then(r=>r.json()).then(d => {
+    document.getElementById('total-count').textContent = d.sources ?? '';
+  }).catch(()=>{});
+
+  // existing "All" item already in HTML
+  cols.forEach((c, i) => {
+    const color = COLORS[i % COLORS.length];
+    const item = document.createElement('div');
+    item.className = 'collection-item';
+    item.dataset.id = c.id;
+    item.dataset.color = color;
+    item.innerHTML = `
+      <div class="collection-dot" style="background:${color}"></div>
+      <div class="collection-name">${escHtml(c.name)}</div>
+      <div class="collection-count"></div>
+    `;
+    item.addEventListener('click', () => selectCollection(c.id, item));
+    list.appendChild(item);
+  });
+}
+
+function selectCollection(id, el) {
+  document.querySelectorAll('.collection-item').forEach(i => i.classList.remove('active'));
+  if (el) el.classList.add('active');
+  activeCollection = id;
+  loadGraph(id);
+  loadSourceList(id);
+}
+
+// ── Source list ───────────────────────────────────────────────────────────────
+async function loadSourceList(collectionId) {
+  const area = document.getElementById('results-area');
+  area.innerHTML = '<div class="no-results"><div class="spinner"></div></div>';
+  try {
+    const qs = collectionId ? `?collection=${collectionId}&limit=100` : '?limit=100';
+    const r = await fetch(`${API}/v1/sources${qs}`);
+    const d = await r.json();
+    renderSourceList(d.sources || []);
+  } catch (e) {
+    area.innerHTML = `<div class="no-results">Error loading sources</div>`;
+  }
+}
+
+function renderSourceList(sources) {
+  const area = document.getElementById('results-area');
+  if (!sources.length) {
+    area.innerHTML = '<div class="no-results">No sources in this collection</div>';
+    return;
+  }
+  area.innerHTML = '';
+  sources.forEach(src => {
+    const item = document.createElement('div');
+    item.className = 'result-item';
+    const color = COLLECTION_COLORS[src.collection] || '#6c63ff';
+    const typeLabel = src.source_type || 'file';
+    item.innerHTML = `
+      <div><span class="tag">${escHtml(typeLabel)}</span></div>
+      <div class="result-title">${escHtml(src.title || src.origin || src.id)}</div>
+      <div class="result-meta">${escHtml(trimOrigin(src.origin))}</div>
+    `;
+    item.addEventListener('click', () => showSourceDetail(src, item));
+    area.appendChild(item);
+  });
+}
+
+async function showSourceDetail(src, el) {
+  document.querySelectorAll('.result-item').forEach(i => i.classList.remove('active'));
+  if (el) el.classList.add('active');
+
+  const panel = document.getElementById('detail-panel');
+  panel.classList.add('open');
+  document.getElementById('detail-title').textContent = src.title || src.origin || src.id;
+  document.getElementById('detail-origin').textContent = src.origin || '';
+  const body = document.getElementById('detail-body');
+  body.innerHTML = '<div class="spinner" style="margin:20px auto;display:block;width:20px;height:20px;"></div>';
+
+  // highlight node in graph
+  highlightNode(src.id);
+
+  // Load relations
+  try {
+    const r = await fetch(`${API}/v1/graph?root=${encodeURIComponent(src.id)}&depth=1`);
+    const g = await r.json();
+    renderDetailBody(body, src, g);
+  } catch (e) {
+    body.innerHTML = '<div style="color:var(--muted);font-size:13px;">Could not load relations</div>';
+  }
+}
+
+function renderDetailBody(body, src, graph) {
+  const nodes = graph.nodes || [];
+  const edges = graph.edges || [];
+  const relEdges = edges.filter(e => e.from === src.id || e.to === src.id);
+
+  let html = `
+    <div class="detail-section">
+      <div class="detail-section-title">Info</div>
+      <div class="detail-content" style="font-size:12px;">
+        <div style="margin-bottom:4px"><b>ID:</b> <span style="color:var(--muted);font-family:monospace">${escHtml(src.id)}</span></div>
+        <div style="margin-bottom:4px"><b>Type:</b> ${escHtml(src.source_type||'file')}</div>
+        <div style="margin-bottom:4px"><b>Created:</b> ${src.created_at ? new Date(src.created_at).toLocaleString() : '—'}</div>
+        ${src.lang ? `<div><b>Lang:</b> ${escHtml(src.lang)}</div>` : ''}
+      </div>
+    </div>`;
+
+  if (relEdges.length) {
+    const nodeById = {};
+    nodes.forEach(n => nodeById[n.id] = n);
+    html += `<div class="detail-section"><div class="detail-section-title">Relations (${relEdges.length})</div>`;
+    relEdges.forEach(e => {
+      const otherId = e.from === src.id ? e.to : e.from;
+      const dir = e.from === src.id ? '→' : '←';
+      const other = nodeById[otherId];
+      const otherLabel = other ? (other.label || otherId) : (e.to_origin || otherId);
+      const relClass = {ref:'rel-ref', similar:'rel-similar', cite:'rel-cite'}[e.label] || 'rel-other';
+      html += `<div class="relation-item">
+        <span class="rel-type ${relClass}">${escHtml(e.label||'rel')}</span>
+        <span style="color:var(--muted)">${dir}</span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${escHtml(otherLabel)}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  } else {
+    html += `<div class="detail-section"><div class="detail-section-title">Relations</div><div style="color:var(--muted);font-size:12px">No relations found</div></div>`;
+  }
+
+  body.innerHTML = html;
+}
+
+// ── Graph (D3 force) ──────────────────────────────────────────────────────────
+function initGraph() {
+  svgEl = d3.select('#graph-svg');
+  zoom = d3.zoom()
+    .scaleExtent([0.05, 5])
+    .on('zoom', e => gEl.attr('transform', e.transform));
+  svgEl.call(zoom);
+  gEl = svgEl.append('g');
+
+  // Arrow marker
+  svgEl.append('defs').append('marker')
+    .attr('id', 'arrow')
+    .attr('viewBox', '0 -4 8 8')
+    .attr('refX', 18).attr('refY', 0)
+    .attr('markerWidth', 6).attr('markerHeight', 6)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M0,-4L8,0L0,4')
+    .attr('fill', '#444');
+}
+
+async function loadGraph(collection) {
+  const info = document.getElementById('graph-info');
+  info.innerHTML = '<div class="spinner" style="display:inline-block;margin-right:6px"></div> Loading graph…';
+  try {
+    const qs = collection ? `?collection=${collection}&max_nodes=200` : '?max_nodes=200';
+    const r = await fetch(`${API}/v1/graph${qs}`);
+    graphData = await r.json();
+    renderGraph(graphData);
+    info.innerHTML = `Nodes: <span>${graphData.nodes?.length||0}</span> · Edges: <span>${graphData.edges?.length||0}</span>`;
+  } catch (e) {
+    info.textContent = 'Failed to load graph';
+    console.error('graph:', e);
+  }
+}
+
+function renderGraph(data) {
+  gEl.selectAll('*').remove();
+  if (simulation) simulation.stop();
+
+  const nodes = (data.nodes || []).map(n => ({...n}));
+  const edges = (data.edges || []).map(e => ({...e}));
+  if (!nodes.length) return;
+
+  const nodeById = {};
+  nodes.forEach(n => nodeById[n.id] = n);
+
+  const links = edges.filter(e => nodeById[e.from] && nodeById[e.to]).map(e => ({
+    source: e.from, target: e.to, label: e.label, id: e.id
+  }));
+
+  const W = document.getElementById('graph-container').clientWidth;
+  const H = document.getElementById('graph-container').clientHeight;
+
+  simulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d => d.id).distance(80).strength(0.5))
+    .force('charge', d3.forceManyBody().strength(-180))
+    .force('center', d3.forceCenter(W/2, H/2))
+    .force('collide', d3.forceCollide(18));
+
+  // Edges
+  const linkSel = gEl.append('g').attr('class','links')
+    .selectAll('line').data(links).join('line')
+    .attr('stroke', '#2a3050')
+    .attr('stroke-width', 1.5)
+    .attr('marker-end', 'url(#arrow)')
+    .attr('opacity', 0.7);
+
+  // Nodes
+  const nodeSel = gEl.append('g').attr('class','nodes')
+    .selectAll('circle').data(nodes).join('circle')
+    .attr('r', d => NODE_RADIUS[d.type] || 8)
+    .attr('fill', d => nodeColor(d))
+    .attr('stroke', '#0f1117')
+    .attr('stroke-width', 1.5)
+    .style('cursor', 'pointer')
+    .call(d3.drag()
+      .on('start', (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; })
+      .on('drag',  (e, d) => { d.fx=e.x; d.fy=e.y; })
+      .on('end',   (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx=null; d.fy=null; })
+    )
+    .on('mouseover', (e, d) => showTooltip(e, d))
+    .on('mousemove', (e, d) => moveTooltip(e))
+    .on('mouseout',  () => hideTooltip())
+    .on('click', (e, d) => {
+      e.stopPropagation();
+      if (d.type === 'source') {
+        showSourceDetail({
+          id: d.id, title: d.label, origin: d.origin,
+          collection: d.collection, source_type: 'file'
+        }, null);
+      }
+    });
+
+  // Labels (only for source nodes or small graphs)
+  const labelSel = gEl.append('g').attr('class','labels')
+    .selectAll('text').data(nodes.filter(n => n.type === 'source')).join('text')
+    .text(d => truncate(d.label, 22))
+    .attr('font-size', 10)
+    .attr('fill', '#94a3b8')
+    .attr('dy', 20)
+    .attr('text-anchor', 'middle')
+    .style('pointer-events', 'none')
+    .style('user-select', 'none');
+
+  simulation.on('tick', () => {
+    linkSel
+      .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+    nodeSel.attr('cx', d => d.x).attr('cy', d => d.y);
+    labelSel.attr('x', d => d.x).attr('y', d => d.y);
+  });
+
+  // Fit after settle
+  setTimeout(() => fitGraph(), 1200);
+}
+
+function nodeColor(n) {
+  if (n.type === 'pending') return '#f87171';
+  if (n.type === 'chunk')   return '#94a3b8';
+  return COLLECTION_COLORS[n.collection] || '#6c63ff';
+}
+
+function highlightNode(id) {
+  if (!gEl) return;
+  gEl.selectAll('circle')
+    .attr('stroke', d => d.id === id ? '#fff' : '#0f1117')
+    .attr('stroke-width', d => d.id === id ? 2.5 : 1.5)
+    .attr('r', d => d.id === id ? (NODE_RADIUS[d.type]||8) + 3 : (NODE_RADIUS[d.type]||8));
+}
+
+function fitGraph() {
+  if (!gEl) return;
+  const bounds = gEl.node().getBBox();
+  if (!bounds.width || !bounds.height) return;
+  const W = document.getElementById('graph-container').clientWidth;
+  const H = document.getElementById('graph-container').clientHeight;
+  const scale = Math.min(0.9, Math.min(W/bounds.width, H/bounds.height)) * 0.85;
+  const tx = W/2 - scale*(bounds.x + bounds.width/2);
+  const ty = H/2 - scale*(bounds.y + bounds.height/2);
+  svgEl.transition().duration(600)
+    .call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
+// ── Tooltip ───────────────────────────────────────────────────────────────────
+function showTooltip(e, d) {
+  const t = document.getElementById('tooltip');
+  t.innerHTML = `<b>${escHtml(d.label||d.id)}</b><br><span style="color:var(--muted)">${d.type}${d.collection ? ' · '+d.collection : ''}</span>`;
+  t.classList.add('visible');
+  moveTooltip(e);
+}
+function moveTooltip(e) {
+  const t = document.getElementById('tooltip');
+  const cont = document.getElementById('graph-container').getBoundingClientRect();
+  let x = e.clientX - cont.left + 12;
+  let y = e.clientY - cont.top + 12;
+  if (x + 230 > cont.width) x = e.clientX - cont.left - 230;
+  t.style.left = x + 'px'; t.style.top = y + 'px';
+}
+function hideTooltip() {
+  document.getElementById('tooltip').classList.remove('visible');
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+let searchTimer = null;
+function bindSearch() {
+  const input = document.getElementById('search-input');
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      clearTimeout(searchTimer);
+      doSearch(input.value.trim());
+    }
+  });
+  // Live search in sidebar results area
+  input.addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    if (!input.value.trim()) {
+      // restore source list
+      loadSourceList(activeCollection);
+      return;
+    }
+    searchTimer = setTimeout(() => doSearch(input.value.trim()), 400);
+  });
+}
+
+async function doSearch(q) {
+  if (!q) return;
+  // Switch to search tab
+  switchTab('search');
+  const area = document.getElementById('search-results');
+  area.innerHTML = '<div class="no-results"><div class="spinner"></div></div>';
+  try {
+    const qs = `?q=${encodeURIComponent(q)}&limit=20${activeCollection ? '&collection='+activeCollection : ''}`;
+    const r = await fetch(`${API}/v1/query${qs}`);
+    const d = await r.json();
+    renderSearchResults(q, d.results || []);
+  } catch (e) {
+    area.innerHTML = `<div class="no-results">Search error</div>`;
+  }
+}
+
+function renderSearchResults(q, results) {
+  const area = document.getElementById('search-results');
+  if (!results.length) {
+    area.innerHTML = `<div class="no-results">No results for <b>${escHtml(q)}</b></div>`;
+    return;
+  }
+  area.innerHTML = `<div style="padding:10px 16px 6px;font-size:12px;color:var(--muted)">${results.length} result${results.length>1?'s':''} for <b style="color:var(--text)">${escHtml(q)}</b></div>`;
+  results.forEach((r, i) => {
+    const item = document.createElement('div');
+    item.className = 'result-item';
+    const score = (r.score * 100).toFixed(0);
+    item.innerHTML = `
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span class="result-score">${score}%</span>
+        ${r.collection ? `<span class="tag">${escHtml(r.collection)}</span>` : ''}
+      </div>
+      <div class="result-title">${escHtml(r.source_title || r.source || 'Untitled')}</div>
+      <div class="result-snippet">${escHtml(truncate(r.content||'',180))}</div>
+      <div class="result-meta">${escHtml(trimOrigin(r.source||''))}</div>
+    `;
+    area.appendChild(item);
+  });
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.getElementById('tab-graph').style.display  = name === 'graph'  ? 'flex' : 'none';
+  document.getElementById('tab-search').style.display = name === 'search' ? 'flex' : 'none';
+  if (name === 'graph' && svgEl) setTimeout(fitGraph, 100);
+}
+
+// ── SSE live updates ──────────────────────────────────────────────────────────
+function connectSSE() {
+  try {
+    const es = new EventSource(`${API}/v1/watch`);
+    es.addEventListener('ingest', e => {
+      const data = JSON.parse(e.data);
+      document.getElementById('sse-badge').style.display = 'flex';
+      // reload graph & collections after new ingest
+      setTimeout(() => { loadCollections(); loadGraph(activeCollection); }, 500);
+    });
+    es.addEventListener('ping', () => {
+      document.getElementById('sse-badge').style.display = 'flex';
+    });
+    es.onerror = () => {
+      document.getElementById('sse-badge').style.display = 'none';
+    };
+  } catch (e) {}
+}
+
+// ── UI bindings ───────────────────────────────────────────────────────────────
+function bindUI() {
+  bindSearch();
+
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => switchTab(t.dataset.tab));
+  });
+
+  // Collection "All" click
+  document.querySelector('.collection-item[data-id=""]').addEventListener('click', function() {
+    selectCollection('', this);
+    document.querySelectorAll('.collection-item').forEach(i => i.classList.remove('active'));
+    this.classList.add('active');
+  });
+
+  // Graph buttons
+  document.getElementById('btn-zoom-in').addEventListener('click', () => {
+    svgEl.transition().duration(300).call(zoom.scaleBy, 1.4);
+  });
+  document.getElementById('btn-zoom-out').addEventListener('click', () => {
+    svgEl.transition().duration(300).call(zoom.scaleBy, 0.7);
+  });
+  document.getElementById('btn-fit').addEventListener('click', fitGraph);
+  document.getElementById('btn-reload').addEventListener('click', () => loadGraph(activeCollection));
+
+  // Detail close
+  document.getElementById('detail-close').addEventListener('click', () => {
+    document.getElementById('detail-panel').classList.remove('open');
+    document.querySelectorAll('.result-item').forEach(i => i.classList.remove('active'));
+    if (gEl) gEl.selectAll('circle')
+      .attr('stroke', '#0f1117').attr('stroke-width', 1.5)
+      .attr('r', d => NODE_RADIUS[d.type]||8);
+  });
+
+  // Click on empty graph area deselect
+  svgEl.on('click', () => {
+    document.getElementById('detail-panel').classList.remove('open');
+  });
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function truncate(s, n) { return s && s.length > n ? s.slice(0, n) + '…' : s; }
+function trimOrigin(s) {
+  if (!s) return '';
+  if (s.startsWith('http')) {
+    try { return new URL(s).hostname + new URL(s).pathname.slice(0,40); } catch(e) { return s.slice(0,50); }
+  }
+  return s.length > 60 ? '…' + s.slice(-57) : s;
+}
+</script>
+</body>
+</html>
