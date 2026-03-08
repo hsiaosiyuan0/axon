@@ -688,7 +688,7 @@ func (m tuiModel) View() string {
 	if m.collection != "" {
 		colLabel = "  " + styleCollectionTag.Render("📁 "+m.collection)
 	}
-	title := styleTitleBar.Render(" 🦞 axon — knowledge search ") + "  " + rerankLabel + colLabel
+	title := styleTitleBar.Render(" 🧠 axon — knowledge search ") + "  " + rerankLabel + colLabel
 	b.WriteString(title + "\n\n")
 
 	// Search input
