@@ -43,6 +43,66 @@ Data directory:
 └── models/           Local ONNX models (optional)
 ```
 
+## Git commit messages
+
+All commit messages **must** follow [Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) and be written in **English**.
+
+### Format
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Types
+
+| Type | When to use |
+|---|---|
+| `feat` | A new feature visible to users |
+| `fix` | A bug fix |
+| `docs` | Documentation only changes |
+| `refactor` | Code change that neither fixes a bug nor adds a feature |
+| `test` | Adding or updating tests |
+| `chore` | Build process, dependency updates, tooling |
+| `perf` | Performance improvement |
+| `ci` | CI/CD configuration changes |
+
+### Rules
+
+- **Description**: lowercase, imperative mood, no trailing period — `add foo`, not `Added foo.`
+- **Scope** (optional): the package or area affected, e.g. `feat(classify):`, `fix(ingest):`
+- **Breaking changes**: append `!` after the type/scope, e.g. `feat!:` or `feat(api)!:`, and add a `BREAKING CHANGE:` footer
+- **Body**: wrap at 72 characters; explain *why*, not *what*
+- **One logical change per commit** — do not bundle unrelated changes
+
+### Examples
+
+```
+feat(classify): add NLI cross-encoder provider for local classification
+
+Adds nli-deberta-v3-small as an ONNX-based zero-shot classifier (~80%
+accuracy) so users can classify collections without a remote LLM API key.
+The model is downloaded automatically on first use.
+```
+
+```
+fix(ingest): require user confirmation before auto-assigning collection
+```
+
+```
+chore(makefile): add build-onnx-dev target for faster iterative builds
+```
+
+```
+feat!: rename config key embed.provider to embed.backend
+
+BREAKING CHANGE: existing config files using embed.provider must be
+updated to embed.backend. Run `axon config set embed.backend <value>`.
+```
+
 ## Adding a new command
 
 1. Create `cmd/mycommand.go` with a `myCmd *cobra.Command`
