@@ -33,19 +33,28 @@ axon mcp                           # MCP server for Claude Desktop
 
 ## Features
 
-| Feature | Description |
-|---------|-------------|
-| **Collections** | Organize knowledge into themed groups (notes, research, code…) |
-| **Hybrid Search** | BM25 full-text + vector embedding, fused with RRF |
-| **Knowledge Graph** | Auto-detect `[[wikilinks]]`, semantic similarity, LLM-extracted relations |
-| **Multi-format** | Markdown, URL, PDF, Obsidian vault, Notion export, code snippets |
-| **AI-ready** | MCP server for Claude Desktop, HTTP REST API |
-| **Web UI** | Built-in D3.js knowledge graph explorer (`axon serve` → `/ui`) |
-| **TUI** | Real-time interactive search in the terminal |
-| **Watch mode** | Auto-ingest file changes in background |
-| **Local-first** | All data stays in `~/.axon/axon.db` — no cloud required |
-| **Single binary** | Download and run — zero dependencies |
-| **Multi-vault** | Use `--db` to switch between multiple knowledge bases |
+### 🧠 Knowledge & Search
+- **Hybrid Search** — BM25 full-text + vector embeddings, fused with Reciprocal Rank Fusion (RRF) for best-of-both-worlds retrieval
+- **Knowledge Graph** — Auto-detects `[[wikilinks]]`, semantic similarity, and LLM-extracted relations (ref, cite, similar, parent/child)
+- **Collections** — Organize knowledge into typed groups (notes, research, code, diary…) with tailored chunking strategies
+
+### 📥 Ingestion
+- **Multi-format** — Markdown, URLs, PDFs, Obsidian vaults, Notion exports, code snippets
+- **Watch mode** — Auto-ingests file changes in the background, always up to date
+
+### 🤖 AI Integration
+- **AI-ready** — MCP server for Claude Desktop & Cursor; exposes `memory_query`, `memory_add`, `memory_relate` tools
+- **LLM assistance** — Optional auto-classification, relation extraction, and smart reranking — fully usable offline without them
+
+### 🖥️ Interfaces
+- **Web UI** — Built-in D3.js knowledge graph explorer (`axon serve` → `/ui`)
+- **TUI** — Real-time interactive search in the terminal (`axon tui`)
+- **REST API** — Full HTTP API for custom integrations
+
+### 🔒 Privacy & Portability
+- **Local-first** — All data stays in `~/.axon/axon.db` — no cloud, no telemetry
+- **Single binary** — Download and run — zero external dependencies
+- **Multi-vault** — Use `--db` to switch between multiple knowledge bases
 
 ---
 
