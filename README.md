@@ -60,6 +60,14 @@ axon mcp                           # MCP server for Claude Desktop
 
 ## Installation
 
+### macOS (Homebrew)
+
+```bash
+brew install hsiaosiyuan0/axon/axon
+```
+
+### Linux / macOS (manual)
+
 Download the latest binary for your platform from the [Releases](https://github.com/hsiaosiyuan0/axon/releases/latest) page:
 
 | Platform | File |
@@ -71,7 +79,7 @@ Download the latest binary for your platform from the [Releases](https://github.
 | Windows | Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/) and follow the Linux steps |
 
 ```bash
-# macOS / Linux — make executable and move to PATH
+# make executable and move to PATH (replace filename with your platform)
 chmod +x axon-darwin-arm64
 sudo mv axon-darwin-arm64 /usr/local/bin/axon
 ```
