@@ -53,6 +53,9 @@ var configShowCmd = &cobra.Command{
 		fmt.Printf("║  DB path     : %-42s║\n", truncate(cfg.DBPath, 42))
 		fmt.Printf("║  Models dir  : %-42s║\n", truncate(cfg.ModelsDir, 42))
 		fmt.Println("╠══════════════════════════════════════════════╣══════════╣")
+		fmt.Println("║  [classify]                                              ║")
+		fmt.Printf("║    provider  : %-42s║\n", cfg.ClassifyProvider)
+		fmt.Println("╠══════════════════════════════════════════════╣══════════╣")
 		fmt.Println("║  [embed]                                                 ║")
 		fmt.Printf("║    provider  : %-42s║\n", cfg.EmbedProvider)
 		fmt.Printf("║    model     : %-42s║\n", cfg.DefaultModel)
@@ -147,7 +150,8 @@ Examples:
 		// Validate key
 		validKeys := map[string]bool{
 			"db.path": true, "db.models_dir": true, "db.plugins_dir": true,
-			"embed.provider": true, "embed.model": true,
+			"classify.provider": true,
+			"embed.provider":    true, "embed.model": true,
 			"embed.api.endpoint": true, "embed.api.key": true, "embed.api.model": true,
 			"llm.endpoint": true, "llm.key": true, "llm.model": true,
 			"server.api_key": true,
@@ -209,6 +213,12 @@ const defaultConfigTOML = `# Axon configuration file
 # models_dir = "~/.axon/models"     # default
 # plugins_dir = "~/.axon/plugins"   # default
 
+# ── Collection Classification ─────────────────────────────────────────────────
+[classify]
+# provider = "llm"          # llm (default, ~85-90% accuracy, requires API key)
+#                           # nli (local, ~80% accuracy, downloads ~44 MB model)
+#                           # bge-cosine (local, ~65% accuracy, uses built-in model)
+
 # ── Embedding ─────────────────────────────────────────────────────────────────
 [embed]
 # Embedding backend: onnx (default, offline) | api | purego (zero-dep)
@@ -227,7 +237,7 @@ provider = "onnx"
 [llm]
 # endpoint = "https://api.openai.com/v1"
 # model    = "gpt-4o-mini"
-# key      = ""                      # set your API key here
+# key      = ""                      # set your API key here (also used for classify.provider = llm)
 
 # ── HTTP API Server ───────────────────────────────────────────────────────────
 [server]

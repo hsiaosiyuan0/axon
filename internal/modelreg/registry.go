@@ -28,7 +28,7 @@ type ModelSpec struct {
 	// TokenizerPath is the path inside the repo for tokenizer.json.
 	TokenizerPath string
 
-	// Dim is the output embedding dimension.
+	// Dim is the output embedding dimension (0 for classification models).
 	Dim int
 
 	// Lang describes supported languages.
@@ -42,6 +42,10 @@ type ModelSpec struct {
 
 	// BuiltIn marks this as the default bundled model (auto-downloaded on first use).
 	BuiltIn bool
+
+	// ModelType describes the model's architecture/task.
+	// Values: "embedding" (default), "nli-classifier"
+	ModelType string
 }
 
 // Registry is the list of all models axon knows about.
@@ -109,6 +113,18 @@ var Registry = []ModelSpec{
 		SizeMB:        33,
 		Description:   "intfloat e5-small-v2 — compact English model, 384-dim (~33 MB).",
 	},
+	// ── NLI classification models (for local collection classification) ───
+	{
+		Name:          "nli-deberta-v3-small",
+		HFRepo:        "cross-encoder/nli-deberta-v3-small",
+		OnnxPath:      "onnx/model.onnx",
+		TokenizerPath: "tokenizer.json",
+		Dim:           0,
+		Lang:          "multilingual",
+		SizeMB:        44,
+		Description:   "cross-encoder/nli-deberta-v3-small — multilingual NLI zero-shot classifier (~44 MB). Used for local collection classification.",
+		ModelType:     "nli-classifier",
+	},
 }
 
 // Find returns the ModelSpec for the given name, or nil.
@@ -129,6 +145,11 @@ func BuiltInModel() *ModelSpec {
 		}
 	}
 	return nil
+}
+
+// NLIModel returns the ModelSpec for the built-in NLI classifier.
+func NLIModel() *ModelSpec {
+	return Find("nli-deberta-v3-small")
 }
 
 // ── Mirror registry ────────────────────────────────────────────────────────

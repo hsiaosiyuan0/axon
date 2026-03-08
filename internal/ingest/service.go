@@ -1,15 +1,19 @@
 package ingest
 
 import (
+	"bufio"
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/hsiaosiyuan0/axon/internal/chunk"
 	"github.com/hsiaosiyuan0/axon/internal/classify"
 	"github.com/hsiaosiyuan0/axon/internal/config"
 	"github.com/hsiaosiyuan0/axon/internal/embed"
+	"github.com/hsiaosiyuan0/axon/internal/modelreg"
 	"github.com/hsiaosiyuan0/axon/internal/obsidian"
 	"github.com/hsiaosiyuan0/axon/internal/plugin"
 	"github.com/hsiaosiyuan0/axon/internal/store"
@@ -17,15 +21,21 @@ import (
 
 // Service handles ingesting new sources into the knowledge base.
 type Service struct {
-	cfg      *config.Config
-	db       *store.DB
-	plugins  *plugin.Registry
+	cfg     *config.Config
+	db      *store.DB
+	plugins *plugin.Registry
+	// ConfirmFn is called before auto-classifying a document into a collection.
+	// It receives the suggested collection name (or ID) and a flag indicating
+	// whether it is a new collection. It should return (true, nil) to accept,
+	// (false, nil) to abort, or (false, err) on I/O error.
+	// If nil, classification proceeds without confirmation (non-interactive mode).
+	ConfirmFn func(collectionName string, isNew bool) (bool, error)
 }
 
 // AddOptions controls how a source is added.
 type AddOptions struct {
 	Origin      string
-	Collection  string // ID or name; empty = auto-classify
+	Collection  string             // ID or name; empty = auto-classify
 	SnippetData *plugin.SourceData // if set, skip fetch and use this data directly
 }
 
@@ -109,16 +119,16 @@ func (s *Service) Add(ctx context.Context, opts AddOptions) (*AddResult, error) 
 
 	// 4. Save source (raw data preserved forever)
 	src, err := s.db.Sources().Create(store.CreateSourceParams{
-		Collection:  collectionID,
-		SourceType:  sourceType,
-		Origin:      opts.Origin,
-		OriginHash:  plugin.ContentHash(data.RawContent),
-		RawContent:  data.RawContent,
-		RawMime:     data.RawMime,
-		PlainText:   data.PlainText,
-		Title:       data.Title,
-		Lang:        data.Lang,
-		Meta:        data.Meta,
+		Collection: collectionID,
+		SourceType: sourceType,
+		Origin:     opts.Origin,
+		OriginHash: plugin.ContentHash(data.RawContent),
+		RawContent: data.RawContent,
+		RawMime:    data.RawMime,
+		PlainText:  data.PlainText,
+		Title:      data.Title,
+		Lang:       data.Lang,
+		Meta:       data.Meta,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("save source: %w", err)
@@ -354,44 +364,154 @@ func (s *Service) resolveCollection(ctx context.Context, collectionHint string, 
 		return cols[0].ID, nil
 	}
 
-	// LLM-assisted classification (requires AXON_LLM_API_KEY)
-	if s.cfg.LLMAPIKey != "" {
-		classResult, err := classify.Classify(ctx, s.cfg, classify.ClassifyInput{
-			Title:     data.Title,
-			PlainText: data.PlainText,
-			Origin:    origin,
-		}, cols)
-		if err == nil {
-			if classResult.SuggestNew {
-				// Create the LLM-suggested collection
-				newCol, createErr := s.db.Collections().Create(store.CreateCollectionParams{
-					Name:        classResult.SuggestedName,
-					Type:        "custom",
-					Description: "Auto-created by LLM classification",
-				})
-				if createErr == nil {
-					fmt.Printf("🤖 LLM suggested new collection: %s (created)\n", classResult.SuggestedName)
-					return newCol.ID, nil
-				}
-				fmt.Printf("⚠️  Failed to create LLM-suggested collection %q: %v\n", classResult.SuggestedName, createErr)
-			} else {
-				// Print the matched collection name for UX
-				for _, c := range cols {
-					if c.ID == classResult.CollectionID {
-						fmt.Printf("🤖 LLM classified into collection: %s\n", c.Name)
-						break
-					}
-				}
-				return classResult.CollectionID, nil
-			}
-		} else {
-			fmt.Printf("⚠️  LLM classification failed (%v), using first collection\n", err)
+	// ── Provider-specific startup checks ─────────────────────────────────────
+	provider := s.cfg.ClassifyProvider
+	if provider == "" {
+		provider = "llm"
+	}
+
+	switch provider {
+	case "bge-cosine":
+		// Warn the user about accuracy on first classification attempt
+		fmt.Println()
+		fmt.Println("⚠️  Collection auto-classification is set to: bge-cosine (local embedding)")
+		fmt.Println("   Estimated accuracy: ~65%  (roughly 65 correct out of every 100 documents)")
+		fmt.Println("   This means about 1 in 3 documents may be placed in the wrong collection.")
+		fmt.Println("   For better results, set classify.provider = \"nli\" or \"llm\" in your config.")
+		fmt.Println()
+
+	case "nli":
+		// Ensure the NLI model is downloaded
+		if err := s.ensureNLIModel(); err != nil {
+			return "", fmt.Errorf("NLI model setup: %w", err)
+		}
+
+	case "llm":
+		// Require API key — no fallback
+		if s.cfg.LLMAPIKey == "" {
+			return "", fmt.Errorf(
+				"collection classification is set to \"llm\" but no API key is configured.\n" +
+					"  Set your key:  axon config set llm.key <your-key>\n" +
+					"  Or switch to a local classifier:\n" +
+					"    axon config set classify.provider nli         # ~80%% accuracy, downloads ~44 MB model\n" +
+					"    axon config set classify.provider bge-cosine  # ~65%% accuracy, uses built-in model\n" +
+					"  Or specify a collection manually: axon add -c <collection> <file>",
+			)
 		}
 	}
 
-	fmt.Printf("📁 Using collection: %s (use -c to specify, or set AXON_LLM_API_KEY for auto-classify)\n", cols[0].Name)
-	return cols[0].ID, nil
+	// ── Run classification ────────────────────────────────────────────────────
+	classResult, err := classify.Classify(ctx, s.cfg, classify.ClassifyInput{
+		Title:     data.Title,
+		PlainText: data.PlainText,
+		Origin:    origin,
+	}, cols)
+	if err != nil {
+		// Classification failed — fall back gracefully only for non-LLM providers
+		if provider == "llm" {
+			return "", fmt.Errorf("LLM classification failed: %w\n"+
+				"  Use -c to specify a collection manually, or check your API key", err)
+		}
+		fmt.Printf("⚠️  %s classification failed (%v), using first collection\n", provider, err)
+		return cols[0].ID, nil
+	}
+
+	// ── User confirmation ─────────────────────────────────────────────────────
+	if classResult.SuggestNew {
+		suggestedName := classResult.SuggestedName
+		confirmed, err := s.askConfirm(suggestedName, true)
+		if err != nil {
+			return "", err
+		}
+		if !confirmed {
+			return "", fmt.Errorf("classification cancelled — use -c to specify a collection manually")
+		}
+		newCol, createErr := s.db.Collections().Create(store.CreateCollectionParams{
+			Name:        suggestedName,
+			Type:        "custom",
+			Description: "Auto-created by " + provider + " classification",
+		})
+		if createErr != nil {
+			return "", fmt.Errorf("create collection %q: %w", suggestedName, createErr)
+		}
+		fmt.Printf("📁 Created new collection: %s\n", suggestedName)
+		return newCol.ID, nil
+	}
+
+	// Existing collection: find its name for confirmation
+	var matchedCol store.Collection
+	for _, c := range cols {
+		if c.ID == classResult.CollectionID {
+			matchedCol = c
+			break
+		}
+	}
+
+	confirmed, err := s.askConfirm(matchedCol.Name, false)
+	if err != nil {
+		return "", err
+	}
+	if !confirmed {
+		return "", fmt.Errorf("classification cancelled — use -c to specify a collection manually")
+	}
+
+	return classResult.CollectionID, nil
 }
+
+// ensureNLIModel checks if the NLI model is on disk and downloads it if not.
+func (s *Service) ensureNLIModel() error {
+	spec := modelreg.NLIModel()
+	if spec == nil {
+		return fmt.Errorf("NLI model not found in registry")
+	}
+
+	modelPath := filepath.Join(s.cfg.ModelsDir, spec.Name, "model.onnx")
+	if fi, err := os.Stat(modelPath); err == nil && fi.Size() > 1024*1024 {
+		return nil // already present
+	}
+
+	fmt.Printf("⬇️  NLI model not found locally. Downloading %q (~%d MB)…\n", spec.Name, spec.SizeMB)
+	fmt.Println("   This is a one-time download required for local collection classification.")
+	fmt.Println("   Tip: use --mirror hf-mirror for faster downloads in mainland China")
+	fmt.Println()
+
+	opts := modelreg.DownloadOptions{}
+	_, err := modelreg.DownloadModel(spec, s.cfg.ModelsDir, opts)
+	if err != nil {
+		return fmt.Errorf("download NLI model: %w", err)
+	}
+	fmt.Printf("✅ NLI model %q ready\n\n", spec.Name)
+	return nil
+}
+
+// askConfirm calls ConfirmFn if set, otherwise prompts via stdin.
+func (s *Service) askConfirm(collectionName string, isNew bool) (bool, error) {
+	if s.ConfirmFn != nil {
+		return s.ConfirmFn(collectionName, isNew)
+	}
+	// Default: interactive stdin prompt
+	return stdinConfirm(collectionName, isNew)
+}
+
+// stdinConfirm prints a [y/N] prompt and reads a single line from stdin.
+func stdinConfirm(collectionName string, isNew bool) (bool, error) {
+	if isNew {
+		fmt.Printf("🤖 Suggested new collection: %q\n", collectionName)
+		fmt.Print("   Create this collection and add the document? [y/N] ")
+	} else {
+		fmt.Printf("🤖 Suggested collection: %q\n", collectionName)
+		fmt.Print("   Add document to this collection? [y/N] ")
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+	answer, err := reader.ReadString('\n')
+	if err != nil {
+		return false, fmt.Errorf("read confirmation: %w", err)
+	}
+	answer = strings.TrimSpace(strings.ToLower(answer))
+	return answer == "y" || answer == "yes", nil
+}
+
 // AddSnippetOptions controls snippet ingestion.
 type AddSnippetOptions struct {
 	Text       string

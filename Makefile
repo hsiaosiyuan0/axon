@@ -6,7 +6,17 @@ BUILD    := go build -tags "fts5" -ldflags "$(LDFLAGS)"
 
 LIBS_DIR  := $(CURDIR)/internal/libs
 
-.PHONY: build build-onnx build-onnx-all run clean test install release \
+# macOS deployment target — must match the version libtokenizers.a was compiled for.
+# Override with: make build-onnx-dev MACOSX_DEPLOYMENT_TARGET=15.0
+MACOSX_DEPLOYMENT_TARGET ?= 15.5
+
+# CGO flags for ONNX builds: point linker at internal/libs and set macOS target.
+CGO_ONNX_FLAGS := CGO_ENABLED=1 \
+	CGO_CFLAGS="-DSQLITE_ENABLE_FTS5" \
+	CGO_LDFLAGS="-L$(LIBS_DIR) -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)" \
+	MACOSX_DEPLOYMENT_TARGET=$(MACOSX_DEPLOYMENT_TARGET)
+
+.PHONY: build build-onnx build-onnx-dev build-onnx-all run clean test install release \
         download-libs download-libs-all version
 
 # ── Default build (fts5 only, no ONNX) ───────────────────────────────────────
@@ -19,6 +29,12 @@ build:
 build-onnx:
 	./scripts/build.sh --onnx
 	@echo "✅ Built $(BINARY) (fts5 + onnx, embedded libonnxruntime)"
+
+# ── ONNX dev build — uses already-downloaded libs, no script needed ───────────
+# Requires: libtokenizers.a already in internal/libs/ (run build-onnx once first)
+build-onnx-dev:
+	$(CGO_ONNX_FLAGS) go build -tags "fts5 onnx" -ldflags "$(LDFLAGS)" -o $(BINARY) . 2>&1 | grep -v "ignoring duplicate"
+	@echo "✅ Built $(BINARY) (fts5 + onnx, dev)"
 
 # ── Download native libs for current platform only ───────────────────────────
 download-libs:
@@ -36,10 +52,8 @@ download-libs-all:
 
 # ── Build ONNX binary for release (all platform assets embedded) ──────────────
 build-onnx-all: download-libs-all
-	CGO_ENABLED=1 \
-	CGO_CFLAGS="-DSQLITE_ENABLE_FTS5" \
-	CGO_LDFLAGS="-L$(LIBS_DIR)" \
-	go build -tags "fts5 onnx" -ldflags "$(LDFLAGS)" -o $(BINARY)-onnx .
+	$(CGO_ONNX_FLAGS) \
+	go build -tags "fts5 onnx" -ldflags "$(LDFLAGS)" -o $(BINARY)-onnx . 2>&1 | grep -v "ignoring duplicate"
 	@echo "✅ Built $(BINARY)-onnx with all platform assets embedded"
 
 # ── Other targets ─────────────────────────────────────────────────────────────

@@ -40,6 +40,12 @@ type Config struct {
 	// EmbedAPIModel is the model name sent to the embedding API.
 	EmbedAPIModel string
 
+	// ── Classification ───────────────────────────────────────────────────────
+
+	// ClassifyProvider selects the collection classification backend.
+	// Values: "llm" (default), "nli" (local NLI cross-encoder), "bge-cosine" (local BGE embedding)
+	ClassifyProvider string
+
 	// ── LLM ──────────────────────────────────────────────────────────────────
 
 	LLMEndpoint string
@@ -117,6 +123,7 @@ func defaults(base string) *Config {
 		EmbedProvider:    "onnx",
 		EmbedAPIEndpoint: "https://api.openai.com/v1",
 		EmbedAPIModel:    "text-embedding-3-small",
+		ClassifyProvider: "llm",
 		LLMEndpoint:      "https://api.openai.com/v1",
 		LLMModel:         "gpt-4o-mini",
 	}
@@ -181,6 +188,10 @@ func loadFile(path string, cfg *Config) error {
 			cfg.EmbedAPIKey = v
 		case "embed.api.model":
 			cfg.EmbedAPIModel = v
+
+		// [classify]
+		case "classify.provider":
+			cfg.ClassifyProvider = v
 
 		// [llm]
 		case "llm.endpoint":
@@ -268,6 +279,9 @@ func applyEnv(cfg *Config) {
 	}
 	if v := os.Getenv("AXON_EMBED_API_MODEL"); v != "" {
 		cfg.EmbedAPIModel = v
+	}
+	if v := os.Getenv("AXON_CLASSIFY_PROVIDER"); v != "" {
+		cfg.ClassifyProvider = v
 	}
 	if v := os.Getenv("AXON_LLM_ENDPOINT"); v != "" {
 		cfg.LLMEndpoint = v
