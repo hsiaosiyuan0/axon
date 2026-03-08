@@ -68,7 +68,7 @@ Download the latest binary for your platform from the [Releases](https://github.
 | macOS (Intel) | `axon-darwin-amd64` |
 | Linux x86_64 | `axon-linux-amd64` |
 | Linux ARM64 | `axon-linux-arm64` |
-| Windows x86_64 | `axon-windows-amd64.exe` |
+| Windows | Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/) and follow the Linux steps |
 
 ```bash
 # macOS / Linux — make executable and move to PATH

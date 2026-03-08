@@ -37,11 +37,6 @@ jobs:
             arch: arm64
             runner: macos-latest
             ext: ""
-          - os: windows
-            arch: amd64
-            runner: windows-latest
-            ext: ".exe"
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,10 +50,6 @@ jobs:
       - name: Install build deps (Linux)
         if: matrix.os == 'linux'
         run: sudo apt-get install -y gcc
-
-      - name: Install build deps (Windows)
-        if: matrix.os == 'windows'
-        run: choco install mingw -y
 
       - name: Build
         env:
@@ -107,7 +98,6 @@ jobs:
             dist/axon-linux-arm64
             dist/axon-darwin-amd64
             dist/axon-darwin-arm64
-            dist/axon-windows-amd64.exe
             dist/SHA256SUMS.txt
           generate_release_notes: true
           draft: false

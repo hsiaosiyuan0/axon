@@ -29,4 +29,4 @@ make install     # copies to /usr/local/bin/axon
 
 ## Windows
 
-Windows users are recommended to use [WSL](https://learn.microsoft.com/en-us/windows/wsl/) and follow the Linux installation steps above.
+Windows users should use [WSL (Windows Subsystem for Linux)](https://learn.microsoft.com/en-us/windows/wsl/install) and follow the Linux installation steps above.
