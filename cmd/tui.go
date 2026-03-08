@@ -9,12 +9,12 @@ import (
 	"time"
 	"unicode/utf8"
 
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/hsiaosiyuan0/axon/internal/config"
 	"github.com/hsiaosiyuan0/axon/internal/hybrid"
 	"github.com/hsiaosiyuan0/axon/internal/rerank"
 	"github.com/hsiaosiyuan0/axon/internal/store"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
 
@@ -91,8 +91,8 @@ var (
 			Bold(true)
 
 	styleRerankToken = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("82")).
-			Bold(true)
+				Foreground(lipgloss.Color("82")).
+				Bold(true)
 
 	// thinking panel styles
 	styleThinkBorder = lipgloss.NewStyle().
@@ -189,11 +189,11 @@ type tuiModel struct {
 	notice string
 
 	// ⑦ LLM rerank streaming / thinking panel
-	rerankStreaming     bool
-	rerankThinking      string // accumulated LLM tokens
-	rerankThinkExpand   bool   // ctrl+o to expand/collapse
-	rerankBatchCurrent  int
-	rerankBatchTotal    int
+	rerankStreaming    bool
+	rerankThinking     string // accumulated LLM tokens
+	rerankThinkExpand  bool   // ctrl+o to expand/collapse
+	rerankBatchCurrent int
+	rerankBatchTotal   int
 
 	// ⑧ quit confirmation
 	quitPending bool
@@ -630,6 +630,13 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
+		case " ":
+			m.quitPending = false
+			m.input += " "
+			m.loading = true
+			m.results = nil
+			return m, m.scheduleSearch()
+
 		default:
 			if msg.Type == tea.KeyRunes {
 				m.quitPending = false // typing resets quit confirmation
@@ -884,7 +891,7 @@ func (m tuiModel) pickerView() string {
 	for i, e := range entries {
 		label := e.label
 		if e.subLabel != "" {
-			label += styleDim.Render("  — "+e.subLabel)
+			label += styleDim.Render("  — " + e.subLabel)
 		}
 		if i == m.pickerSelected {
 			rows = append(rows, stylePickerSelected.Render(fmt.Sprintf("▶ %s", strings.TrimLeft(label, " "))))
